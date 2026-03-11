@@ -1,0 +1,6 @@
+[submodule "modules/zqlite"]
+	path = modules/zqlite
+	url = https://github.com/karlseguin/zqlite.zig
+[submodule "zig-sqlite"]
+	path = modules/zig-sqlite
+	url = https://github.com/vrischmann/zig-sqlite

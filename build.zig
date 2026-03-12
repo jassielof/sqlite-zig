@@ -5,12 +5,36 @@ pub fn build(b: *std.Build) void {
 
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const sqlite_dep = b.dependency("sqlite", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const sqlite_c_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    const sqlite_c_lib = b.addLibrary(.{
+        .name = "sqlite3",
+        .linkage = .static,
+        .root_module = sqlite_c_mod,
+    });
+    sqlite_c_lib.addIncludePath(sqlite_dep.path("."));
+    sqlite_c_lib.addCSourceFile(.{
+        .file = sqlite_dep.path("sqlite3.c"),
+        .flags = &.{"-std=c99"},
+    });
 
     const lib_mod = b.addModule(mod_name, .{
         .root_source_file = b.path("src/lib/root.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
+    lib_mod.addIncludePath(sqlite_dep.path("."));
+    lib_mod.linkLibrary(sqlite_c_lib);
 
     const docs_step = b.step("docs", "Generate the documentation");
 
@@ -34,6 +58,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("tests/suite.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
             .imports = &.{
                 .{
                     .name = mod_name,

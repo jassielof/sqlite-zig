@@ -1,0 +1,72 @@
+name: Update SQLite Dependency
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+
+      - name: Fetch latest SQLite info
+        id: latest
+        run: |
+          RESPONSE=$(curl -fsSL https://sqlite-artifacts-api.jassielof.workers.dev/api/versions/latest)
+          echo "version=$(echo "$RESPONSE" | jq -r '.version')"  >> "$GITHUB_OUTPUT"
+          echo "url=$(echo "$RESPONSE" | jq -r '.artifacts[] | select(.product == "sqlite-amalgamation") | .url')" >> "$GITHUB_OUTPUT"
+
+      - name: Check if update is needed
+        id: check
+        run: |
+          CURRENT=$(grep -oP 'https://[^\s"]+sqlite-amalgamation[^\s"]+' build.zig.zon 2>/dev/null || echo "")
+          NEW="${{ steps.latest.outputs.url }}"
+          echo "Current : $CURRENT"
+          echo "Latest  : $NEW"
+          [ "$CURRENT" = "$NEW" ] && echo "changed=false" >> "$GITHUB_OUTPUT" \
+                                  || echo "changed=true"  >> "$GITHUB_OUTPUT"
+
+      - name: Check if PR already exists
+        id: pr_check
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          BRANCH="update/sqlite-${{ steps.latest.outputs.version }}"
+          EXISTING=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          echo "branch=$BRANCH"     >> "$GITHUB_OUTPUT"
+          echo "existing=$EXISTING" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update dependency
+        if: steps.check.outputs.changed == 'true' && steps.pr_check.outputs.existing == ''
+        run: zig fetch --save=sqlite "${{ steps.latest.outputs.url }}"
+
+      - name: Open PR
+        if: steps.check.outputs.changed == 'true' && steps.pr_check.outputs.existing == ''
+        run: |
+          BRANCH="${{ steps.pr_check.outputs.branch }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add build.zig.zon
+          git commit -m "chore(deps): update SQLite to ${{ steps.latest.outputs.version }}"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore(deps): update SQLite to ${{ steps.latest.outputs.version }}" \
+            --body  "Automated update from [sqlite-artifacts-api](https://sqlite-artifacts-api.jassielof.workers.dev)." \
+            --base  main \
+            --head  "$BRANCH")
+          # Queue auto-merge — fires once all required checks pass
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

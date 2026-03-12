@@ -5,11 +5,10 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .sqlite = .{
-            .url = "https://sqlite.org/2026/sqlite-amalgamation-3520000.zip",
-            .hash = "N-V-__8AAO__rABT7Tv4pZA16qMD3KCnPDdlSnurtVqjjHsg",
+            .url = "https://sqlite.org/2026/sqlite-amalgamation-3510200.zip",
+            .hash = "N-V-__8AALNmqgBz73I7J8GlQS_kCPTRgxS0rm8gXcEM8Evk",
         },
     },
-
     .paths = .{
         "build.zig",
         "build.zig.zon",

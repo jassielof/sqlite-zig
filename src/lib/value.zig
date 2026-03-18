@@ -57,15 +57,16 @@ pub fn readCallbackValue(comptime T: type, raw: *c.sqlite3_value) errors.Error!T
 
 pub fn setContextResult(ctx: ?*c.sqlite3_context, value: anytype) void {
     const T = @TypeOf(value);
+    const transient = @import("c.zig").sqliteTransient();
 
     if (T == types.TextValue) {
         const slice = value.data;
-        c.sqlite3_result_text64(ctx, slice.ptr, slice.len, c.SQLITE_TRANSIENT, c.SQLITE_UTF8);
+        c.sqlite3_result_text64(ctx, slice.ptr, slice.len, transient, c.SQLITE_UTF8);
         return;
     }
     if (T == types.BlobValue) {
         const slice = value.data;
-        c.sqlite3_result_blob64(ctx, slice.ptr, slice.len, c.SQLITE_TRANSIENT);
+        c.sqlite3_result_blob64(ctx, slice.ptr, slice.len, transient);
         return;
     }
 
@@ -82,14 +83,14 @@ pub fn setContextResult(ctx: ?*c.sqlite3_context, value: anytype) void {
         .float, .comptime_float => c.sqlite3_result_double(ctx, @floatCast(value)),
         .pointer => |pointer_info| {
             if (pointer_info.size == .slice and pointer_info.child == u8) {
-                c.sqlite3_result_text64(ctx, value.ptr, value.len, c.SQLITE_TRANSIENT, c.SQLITE_UTF8);
+                c.sqlite3_result_text64(ctx, value.ptr, value.len, transient, c.SQLITE_UTF8);
                 return;
             }
             @compileError("unsupported SQLite callback result type " ++ @typeName(T));
         },
         .array => |array_info| {
             if (array_info.child == u8) {
-                c.sqlite3_result_text64(ctx, value[0..].ptr, value.len, c.SQLITE_TRANSIENT, c.SQLITE_UTF8);
+                c.sqlite3_result_text64(ctx, value[0..].ptr, value.len, transient, c.SQLITE_UTF8);
                 return;
             }
             @compileError("unsupported SQLite callback result type " ++ @typeName(T));

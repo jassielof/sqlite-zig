@@ -252,7 +252,7 @@ fn bindText(handle: *c.sqlite3_stmt, index: c_int, data: []const u8) errors.Erro
         index,
         data.ptr,
         data.len,
-        c.SQLITE_TRANSIENT,
+        @import("c.zig").sqliteTransient(),
         c.SQLITE_UTF8,
     );
     if (result != c.SQLITE_OK) {
@@ -266,7 +266,7 @@ fn bindBlob(handle: *c.sqlite3_stmt, index: c_int, data: []const u8) errors.Erro
         index,
         data.ptr,
         data.len,
-        c.SQLITE_TRANSIENT,
+        @import("c.zig").sqliteTransient(),
     );
     if (result != c.SQLITE_OK) {
         return errors.fromCode(result);

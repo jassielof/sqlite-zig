@@ -22,8 +22,13 @@ pub fn build(b: *std.Build) void {
         .root_module = sqlite_c_mod,
     });
     sqlite_c_lib.addIncludePath(sqlite_dep.path("."));
+    sqlite_c_lib.addIncludePath(b.path("src/lib/c"));
     sqlite_c_lib.addCSourceFile(.{
         .file = sqlite_dep.path("sqlite3.c"),
+        .flags = &.{"-std=c99"},
+    });
+    sqlite_c_lib.addCSourceFile(.{
+        .file = b.path("src/lib/c/workaround.c"),
         .flags = &.{"-std=c99"},
     });
 
@@ -34,6 +39,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     lib_mod.addIncludePath(sqlite_dep.path("."));
+    lib_mod.addIncludePath(b.path("src/lib/c"));
     lib_mod.linkLibrary(sqlite_c_lib);
 
     const docs_step = b.step("docs", "Generate the documentation");

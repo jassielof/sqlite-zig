@@ -3,8 +3,10 @@ const c = @import("c.zig").c;
 const errors = @import("errors.zig");
 const value = @import("value.zig");
 
+/// A virtual table argument passed to `Cursor.filter` or `Table.update`.
 pub const FilterArg = value.FilterArg;
 
+/// SQLite WHERE-clause operator kinds reported to `bestIndex`.
 pub const ConstraintOp = enum(u8) {
     eq = c.SQLITE_INDEX_CONSTRAINT_EQ,
     gt = c.SQLITE_INDEX_CONSTRAINT_GT,
@@ -47,46 +49,60 @@ pub const ConstraintOp = enum(u8) {
     }
 };
 
+/// A single WHERE-clause constraint visible to `bestIndex`.
 pub const Constraint = struct {
     column: i32,
     op: ConstraintOp,
     usable: bool,
 };
 
+/// A single ORDER BY term visible to `bestIndex`.
 pub const OrderBy = struct {
     column: i32,
     desc: bool,
 };
 
+/// The query plan data chosen in `bestIndex` and later provided to `Cursor.filter`.
 pub const QueryPlan = struct {
     index_number: i32 = 0,
     index_string: ?[]const u8 = null,
 };
 
+/// The kind of write operation requested for a virtual table.
 pub const UpdateKind = enum {
     delete,
     insert,
     update,
 };
 
+/// A write request delivered to `Table.update`.
+///
+/// For inserts, `old_rowid` is null. For deletes, `columns` is empty.
 pub const UpdateOperation = struct {
     kind: UpdateKind,
     old_rowid: ?i64,
     new_rowid: ?i64,
     columns: []const FilterArg,
 
+    /// Returns the value assigned to a declared virtual-table column.
     pub fn column(self: UpdateOperation, index: usize) FilterArg {
         return self.columns[index];
     }
 };
 
+/// Mutable planner state passed to `Table.bestIndex`.
+///
+/// This wraps `sqlite3_index_info` and exposes the parts most virtual tables
+/// need when deciding constraint usage, index identifiers, and scan costs.
 pub const BestIndexInfo = struct {
     raw: *c.sqlite3_index_info,
 
+    /// Returns the number of available WHERE-clause constraints.
     pub fn constraintCount(self: BestIndexInfo) usize {
         return @intCast(self.raw.nConstraint);
     }
 
+    /// Returns a specific WHERE-clause constraint.
     pub fn constraint(self: BestIndexInfo, index: usize) Constraint {
         const raw_constraint = self.raw.aConstraint[index];
         return .{
@@ -96,10 +112,12 @@ pub const BestIndexInfo = struct {
         };
     }
 
+    /// Returns the number of ORDER BY terms that SQLite would like satisfied.
     pub fn orderByCount(self: BestIndexInfo) usize {
         return @intCast(self.raw.nOrderBy);
     }
 
+    /// Returns a specific ORDER BY term.
     pub fn orderBy(self: BestIndexInfo, index: usize) OrderBy {
         const raw_order = self.raw.aOrderBy[index];
         return .{
@@ -108,15 +126,23 @@ pub const BestIndexInfo = struct {
         };
     }
 
+    /// Marks whether a constraint should be forwarded to `Cursor.filter`.
+    ///
+    /// `argv_index` is zero-based here and is converted to SQLite's one-based
+    /// `argvIndex` convention internally.
     pub fn setConstraintUsage(self: BestIndexInfo, constraint_index: usize, argv_index: ?usize, omit: bool) void {
         self.raw.aConstraintUsage[constraint_index].argvIndex = if (argv_index) |index| @intCast(index + 1) else 0;
         self.raw.aConstraintUsage[constraint_index].omit = if (omit) 1 else 0;
     }
 
+    /// Sets the integer plan identifier passed back to `Cursor.filter`.
     pub fn setIndexNumber(self: BestIndexInfo, index_number: i32) void {
         self.raw.idxNum = @intCast(index_number);
     }
 
+    /// Sets the string plan identifier passed back to `Cursor.filter`.
+    ///
+    /// The string is copied into SQLite-managed memory.
     pub fn setIndexString(self: BestIndexInfo, index_string: ?[]const u8) errors.Error!void {
         if (self.raw.needToFreeIdxStr != 0 and self.raw.idxStr != null) {
             c.sqlite3_free(self.raw.idxStr);
@@ -135,20 +161,24 @@ pub const BestIndexInfo = struct {
         }
     }
 
+    /// Declares that the cursor output already satisfies the requested ORDER BY.
     pub fn setOrderByConsumed(self: BestIndexInfo, consumed: bool) void {
         self.raw.orderByConsumed = if (consumed) 1 else 0;
     }
 
+    /// Sets the planner cost estimate for the selected strategy.
     pub fn setEstimatedCost(self: BestIndexInfo, cost: f64) void {
         self.raw.estimatedCost = cost;
     }
 
+    /// Sets the estimated number of rows for the selected strategy.
     pub fn setEstimatedRows(self: BestIndexInfo, rows: i64) void {
         if (@hasField(c.sqlite3_index_info, "estimatedRows")) {
             self.raw.estimatedRows = rows;
         }
     }
 
+    /// Marks whether the selected strategy can return at most one row.
     pub fn setUnique(self: BestIndexInfo, unique: bool) void {
         if (@hasField(c.sqlite3_index_info, "idxFlags")) {
             if (unique) {
@@ -159,6 +189,7 @@ pub const BestIndexInfo = struct {
         }
     }
 
+    /// Requests hex formatting for `idxNum` in `EXPLAIN QUERY PLAN` output.
     pub fn setExplainIndexAsHex(self: BestIndexInfo, enabled: bool) void {
         if (@hasField(c.sqlite3_index_info, "idxFlags")) {
             if (enabled) {
@@ -169,6 +200,7 @@ pub const BestIndexInfo = struct {
         }
     }
 
+    /// Returns the bitmask of columns that may be required by the query.
     pub fn colUsed(self: BestIndexInfo) u64 {
         if (@hasField(c.sqlite3_index_info, "colUsed")) {
             return self.raw.colUsed;
@@ -189,6 +221,11 @@ pub const BestIndexInfo = struct {
     }
 };
 
+/// Registers a virtual table module on a single database connection.
+///
+/// `Table` must define `schema`, `Cursor`, `init`, and `openCursor`. Optional
+/// hooks include `bestIndex`, `update`, and transaction lifecycle methods such
+/// as `begin`, `commit`, `rollback`, and savepoint handlers.
 pub fn createModule(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comptime name: []const u8, comptime Table: type) errors.Error!void {
     if (!@hasDecl(Table, "schema")) @compileError("virtual table type must define `pub const schema: [:0]const u8`");
     if (!@hasDecl(Table, "Cursor")) @compileError("virtual table type must define `pub const Cursor`");

@@ -3,9 +3,17 @@ const c = @import("c.zig").c;
 const errors = @import("errors.zig");
 const value = @import("value.zig");
 
+/// SQLite callback context for scalar and aggregate functions.
+///
+/// Use this as the first parameter of a callback registered with
+/// `createScalarWithUserData` or `createAggregateWithUserData` when the
+/// function needs access to user-provided state or aggregate-local storage.
 pub const FunctionContext = struct {
     ctx: ?*c.sqlite3_context,
 
+    /// Returns the pointer that was passed as `user_data` during function registration.
+    ///
+    /// `T` must be a single-item pointer type such as `*MyState`.
     pub fn userContext(self: FunctionContext, comptime T: type) ?T {
         const types = splitPointerType(T);
         _ = types;
@@ -14,6 +22,10 @@ pub const FunctionContext = struct {
         return @ptrCast(@alignCast(raw));
     }
 
+    /// Returns SQLite-managed aggregate storage for the requested pointer type.
+    ///
+    /// SQLite initializes this memory to zero on first use. `T` must be a
+    /// single-item pointer type such as `*AggregateState`.
     pub fn aggregateContext(self: FunctionContext, comptime T: type) ?T {
         const types = splitPointerType(T);
         const raw = c.sqlite3_aggregate_context(self.ctx, @sizeOf(types.ValueType)) orelse return null;
@@ -35,6 +47,7 @@ pub const FunctionContext = struct {
     }
 };
 
+/// Flags that control how SQLite treats a registered SQL function.
 pub const FunctionFlags = struct {
     deterministic: bool = true,
     direct_only: bool = false,
@@ -51,10 +64,19 @@ pub const FunctionFlags = struct {
     }
 };
 
+/// Registers a scalar SQL function.
+///
+/// The callback parameters after any optional `FunctionContext` are mapped from
+/// SQLite argument values. The function name is registered on a single `Db`
+/// connection.
 pub fn createScalar(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comptime name: []const u8, comptime func: anytype, flags: FunctionFlags) errors.Error!void {
     try createScalarWithUserData(db_handle, allocator, name, null, func, flags);
 }
 
+/// Registers a scalar SQL function with user-provided callback state.
+///
+/// If the callback's first parameter is `FunctionContext`, the callback can
+/// retrieve `user_data` via `ctx.userContext(...)`.
 pub fn createScalarWithUserData(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comptime name: []const u8, user_data: anytype, comptime func: anytype, flags: FunctionFlags) errors.Error!void {
     const z_name = try allocator.dupeZ(u8, name);
     defer allocator.free(z_name);
@@ -124,6 +146,10 @@ pub fn createScalarWithUserData(db_handle: *c.sqlite3, allocator: std.mem.Alloca
     }
 }
 
+/// Registers an aggregate SQL function backed by a Zig state type.
+///
+/// `Aggregate` must provide `step(self, ...)` and `final(self)` methods. The
+/// state is created lazily per aggregate invocation.
 pub fn createAggregate(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comptime name: []const u8, comptime Aggregate: type, flags: FunctionFlags) errors.Error!void {
     const z_name = try allocator.dupeZ(u8, name);
     defer allocator.free(z_name);
@@ -232,6 +258,11 @@ pub fn createAggregate(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comp
     }
 }
 
+/// Registers an aggregate SQL function that uses `FunctionContext` instead of a
+/// dedicated aggregate type.
+///
+/// This is useful when the callback needs both user-provided state and
+/// SQLite-managed aggregate-local storage via `ctx.aggregateContext(...)`.
 pub fn createAggregateWithUserData(db_handle: *c.sqlite3, allocator: std.mem.Allocator, comptime name: []const u8, user_data: anytype, comptime step_func: anytype, comptime final_func: anytype, flags: FunctionFlags) errors.Error!void {
     const z_name = try allocator.dupeZ(u8, name);
     defer allocator.free(z_name);

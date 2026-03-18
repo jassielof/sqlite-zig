@@ -178,18 +178,28 @@ pub const Db = struct {
         try function.createScalar(self.handle, self.allocator, name, func, flags);
     }
 
+    /// Registers a scalar SQL function with user-provided callback state.
+    ///
+    /// If `func` takes `sqlite.FunctionContext` as its first parameter, it can
+    /// recover `user_data` through `ctx.userContext(...)`.
     pub fn createScalarFunctionWithUserData(self: *Db, comptime name: []const u8, user_data: anytype, comptime func: anytype, flags: function.FunctionFlags) errors.Error!void {
         try function.createScalarWithUserData(self.handle, self.allocator, name, user_data, func, flags);
     }
 
+    /// Registers an aggregate SQL function backed by a Zig state type.
     pub fn createAggregateFunction(self: *Db, comptime name: []const u8, comptime Aggregate: type, flags: function.FunctionFlags) errors.Error!void {
         try function.createAggregate(self.handle, self.allocator, name, Aggregate, flags);
     }
 
+    /// Registers an aggregate SQL function that uses `sqlite.FunctionContext`.
+    ///
+    /// This is the lowest-level aggregate API and allows callbacks to combine
+    /// user-provided state with SQLite-managed aggregate storage.
     pub fn createAggregateFunctionWithUserData(self: *Db, comptime name: []const u8, user_data: anytype, comptime step_func: anytype, comptime final_func: anytype, flags: function.FunctionFlags) errors.Error!void {
         try function.createAggregateWithUserData(self.handle, self.allocator, name, user_data, step_func, final_func, flags);
     }
 
+    /// Registers a Zig-backed virtual table module on this connection.
     pub fn createVirtualTableModule(self: *Db, comptime name: []const u8, comptime Table: type) errors.Error!void {
         try vtab.createModule(self.handle, self.allocator, name, Table);
     }

@@ -22,6 +22,8 @@ jobs:
 
       - name: Set up Zig
         uses: jassielof/setup-zig@v1
+        with:
+          cache: false
 
       - name: Formatting
         run: zig fmt .

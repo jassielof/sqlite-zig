@@ -106,7 +106,8 @@ test "integration: SQLite 3.53 json_array_insert is available" {
     var db = try sqlite.Db.open(std.testing.allocator, .{});
     defer db.deinit();
 
-    try std.testing.expect(sqlite.sqliteVersionNumber() >= 3_053_000);
+    try std.testing.expect(sqlite.sqliteVersionNumber() >= sqlite.minimum_sqlite_version_number);
+    try std.testing.expectEqual(sqlite.sqlite_version_number, sqlite.sqliteVersionNumber());
 
     const value = (try db.one([]const u8, "select json_array_insert(?, '$[1]', ?)", .{ "[1,2,3]", @as(i64, 99) })).?;
     defer sqlite.release(std.testing.allocator, value);

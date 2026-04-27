@@ -21,11 +21,11 @@ The initial implementation includes:
 
 ## Zig Version
 
-This package targets Zig and uses build-system C translation instead of source-level `@cImport`.
+This package targets Zig 0.16.0 and uses build-system C translation instead of source-level `@cImport`.
 
 ## SQLite Version
 
-The bundled amalgamation is SQLite 3.53.0. The root module exposes `sqlite.sqliteVersion()`, `sqlite.sqliteVersionNumber()`, and `sqlite.sqliteSourceId()` for runtime verification.
+The bundled amalgamation currently targets SQLite 3.53.0. The root module exposes the translated header macros as `sqlite.sqlite_version`, `sqlite.sqlite_version_number`, and `sqlite.sqlite_source_id`, plus runtime verification helpers `sqlite.sqliteVersion()`, `sqlite.sqliteVersionNumber()`, and `sqlite.sqliteSourceId()`.
 
 SQLite 3.53 additions are available through the normal APIs, including `PrepareOptions.from_ddl` for `SQLITE_PREPARE_FROM_DDL` and SQL functions such as `json_array_insert()`.
 

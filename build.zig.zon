@@ -2,7 +2,7 @@
     .name = .sqlite,
     .version = "0.0.0",
     .fingerprint = 0xb8bb868218b7a649,
-    .minimum_zig_version = "0.15.2",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .sqlite = .{
             .url = "https://www.sqlite.org/2026/sqlite-amalgamation-3530000.zip",

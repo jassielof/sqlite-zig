@@ -1,5 +1,10 @@
 const std = @import("std");
+
 const sqlite = @import("sqlite");
+
+comptime {
+    std.testing.refAllDecls(@This());
+}
 
 test "integration: convenience query flow" {
     var db = try sqlite.Db.open(std.testing.allocator, .{});

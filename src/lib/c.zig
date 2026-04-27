@@ -30,7 +30,6 @@ pub inline fn sqliteTransient() c.sqlite3_destructor_type {
 }
 
 test "SQLite metadata matches translated header" {
-    std.debug.print("SQLite version: {s}", .{sqliteVersion()});
     try std.testing.expect(sqliteVersionNumber() >= minimum_sqlite_version_number);
     try std.testing.expectEqual(sqlite_version_number, sqliteVersionNumber());
     try std.testing.expectEqualStrings(sqlite_version, sqliteVersion());

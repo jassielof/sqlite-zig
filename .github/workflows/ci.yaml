@@ -26,8 +26,8 @@ jobs:
       - name: Formatting
         run: zig fmt .
 
-      # - name: Build
-      #   run: zig build --summary all
+      - name: Build
+        run: zig build --summary all
 
       - name: Build documentation
         run: zig build docs --summary all

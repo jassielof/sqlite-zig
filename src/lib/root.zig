@@ -26,6 +26,7 @@ pub const LastError = @import("db.zig").LastError;
 pub const OpenOptions = @import("db.zig").OpenOptions;
 pub const OrderBy = @import("vtab.zig").OrderBy;
 pub const Pool = @import("pool.zig").Pool;
+pub const PrepareOptions = @import("statement.zig").PrepareOptions;
 pub const QueryPlan = @import("vtab.zig").QueryPlan;
 pub const release = @import("release.zig").release;
 pub const Savepoint = @import("transaction.zig").Savepoint;
@@ -36,6 +37,9 @@ pub const TransactionMode = @import("transaction.zig").TransactionMode;
 pub const UpdateKind = @import("vtab.zig").UpdateKind;
 pub const UpdateOperation = @import("vtab.zig").UpdateOperation;
 pub const ZeroBlob = @import("types.zig").ZeroBlob;
+pub const sqliteSourceId = @import("c.zig").sqliteSourceId;
+pub const sqliteVersion = @import("c.zig").sqliteVersion;
+pub const sqliteVersionNumber = @import("c.zig").sqliteVersionNumber;
 
 comptime {
     refAllDecls(@This());

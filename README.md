@@ -1,6 +1,6 @@
-# sqlite-zig
+# SQLite for Zig
 
-Convenience-first SQLite for Zig 0.15.
+Convenience-first SQLite for Zig.
 
 The goal is to make common database work feel straightforward without turning the library into an ORM. You open a database, execute statements, bind positional or named parameters, map rows into Zig values or structs, and use transactions or a pool when you need them.
 
@@ -21,7 +21,13 @@ The initial implementation includes:
 
 ## Zig Version
 
-This package targets Zig 0.15.2.
+This package targets Zig and uses build-system C translation instead of source-level `@cImport`.
+
+## SQLite Version
+
+The bundled amalgamation is SQLite 3.53.0. The root module exposes `sqlite.sqliteVersion()`, `sqlite.sqliteVersionNumber()`, and `sqlite.sqliteSourceId()` for runtime verification.
+
+SQLite 3.53 additions are available through the normal APIs, including `PrepareOptions.from_ddl` for `SQLITE_PREPARE_FROM_DDL` and SQL functions such as `json_array_insert()`.
 
 ## Quick Start
 

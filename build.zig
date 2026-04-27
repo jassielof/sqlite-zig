@@ -21,22 +21,36 @@ pub fn build(b: *std.Build) void {
         .linkage = .static,
         .root_module = sqlite_c_mod,
     });
-    sqlite_c_lib.addIncludePath(sqlite_dep.path("."));
-    sqlite_c_lib.addIncludePath(b.path("src/lib/c"));
-    sqlite_c_lib.addCSourceFile(.{
+    sqlite_c_mod.addIncludePath(sqlite_dep.path("."));
+    sqlite_c_mod.addIncludePath(b.path("src/lib/c"));
+    sqlite_c_mod.addCSourceFile(.{
         .file = sqlite_dep.path("sqlite3.c"),
         .flags = &.{"-std=c99"},
     });
-    sqlite_c_lib.addCSourceFile(.{
+    sqlite_c_mod.addCSourceFile(.{
         .file = b.path("src/lib/c/workaround.c"),
         .flags = &.{"-std=c99"},
     });
+
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = b.path("src/lib/c/workaround.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    translate_c.addIncludePath(sqlite_dep.path("."));
+    translate_c.addIncludePath(b.path("src/lib/c"));
 
     const lib_mod = b.addModule(mod_name, .{
         .root_source_file = b.path("src/lib/root.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
+        .imports = &.{
+            .{
+                .name = "c",
+                .module = translate_c.createModule(),
+            },
+        },
     });
     lib_mod.addIncludePath(sqlite_dep.path("."));
     lib_mod.addIncludePath(b.path("src/lib/c"));

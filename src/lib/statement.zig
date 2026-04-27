@@ -3,18 +3,42 @@ const c = @import("c.zig").c;
 const errors = @import("errors.zig");
 const types = @import("types.zig");
 
+/// Flags passed to `sqlite3_prepare_v3`.
+pub const PrepareOptions = struct {
+    persistent: bool = false,
+    normalize: bool = false,
+    no_vtab: bool = false,
+    dont_log: bool = false,
+    from_ddl: bool = false,
+
+    fn toC(self: PrepareOptions) c_uint {
+        var flags: c_uint = 0;
+        if (self.persistent and @hasDecl(c, "SQLITE_PREPARE_PERSISTENT")) flags |= c.SQLITE_PREPARE_PERSISTENT;
+        if (self.normalize and @hasDecl(c, "SQLITE_PREPARE_NORMALIZE")) flags |= c.SQLITE_PREPARE_NORMALIZE;
+        if (self.no_vtab and @hasDecl(c, "SQLITE_PREPARE_NO_VTAB")) flags |= c.SQLITE_PREPARE_NO_VTAB;
+        if (self.dont_log and @hasDecl(c, "SQLITE_PREPARE_DONT_LOG")) flags |= c.SQLITE_PREPARE_DONT_LOG;
+        if (self.from_ddl and @hasDecl(c, "SQLITE_PREPARE_FROM_DDL")) flags |= c.SQLITE_PREPARE_FROM_DDL;
+        return flags;
+    }
+};
+
 pub const Statement = struct {
     handle: *c.sqlite3_stmt,
     db_handle: *c.sqlite3,
 
     pub fn prepare(db_handle: *c.sqlite3, sql: []const u8) errors.Error!Statement {
+        return prepareWithOptions(db_handle, sql, .{});
+    }
+
+    pub fn prepareWithOptions(db_handle: *c.sqlite3, sql: []const u8, options: PrepareOptions) errors.Error!Statement {
         var handle: ?*c.sqlite3_stmt = null;
         var tail: [*c]const u8 = null;
 
-        const result = c.sqlite3_prepare_v2(
+        const result = c.sqlite3_prepare_v3(
             db_handle,
             sql.ptr,
             @intCast(sql.len),
+            options.toC(),
             &handle,
             &tail,
         );

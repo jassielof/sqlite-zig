@@ -9,8 +9,7 @@ pub const Pool = struct {
     available: []usize,
     available_count: usize,
     closed: bool = false,
-    mutex: std.Thread.Mutex = .{},
-    condition: std.Thread.Condition = .{},
+    mutex: std.atomic.Mutex = .unlocked,
 
     pub const Config = struct {
         size: usize = 4,
@@ -78,10 +77,9 @@ pub const Pool = struct {
     }
 
     pub fn deinit(self: *Pool) void {
-        self.mutex.lock();
+        self.lock();
         self.closed = true;
-        self.condition.broadcast();
-        self.mutex.unlock();
+        self.unlock();
 
         for (self.databases) |*db| {
             db.deinit();
@@ -91,29 +89,33 @@ pub const Pool = struct {
     }
 
     pub fn acquire(self: *Pool) errors.Error!Lease {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        while (true) {
+            self.lock();
 
-        while (self.available_count == 0 and !self.closed) {
-            self.condition.wait(&self.mutex);
+            if (self.closed) {
+                self.unlock();
+                return error.PoolClosed;
+            }
+
+            if (self.available_count > 0) {
+                self.available_count -= 1;
+                const slot_index = self.available[self.available_count];
+                self.unlock();
+                return .{
+                    .pool = self,
+                    .db = &self.databases[slot_index],
+                    .slot_index = slot_index,
+                };
+            }
+
+            self.unlock();
+            std.Thread.yield() catch {};
         }
-
-        if (self.closed) {
-            return error.PoolClosed;
-        }
-
-        self.available_count -= 1;
-        const slot_index = self.available[self.available_count];
-        return .{
-            .pool = self,
-            .db = &self.databases[slot_index],
-            .slot_index = slot_index,
-        };
     }
 
     fn releaseSlot(self: *Pool, slot_index: usize) void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.lock();
+        defer self.unlock();
 
         if (self.closed) {
             return;
@@ -121,7 +123,16 @@ pub const Pool = struct {
 
         self.available[self.available_count] = slot_index;
         self.available_count += 1;
-        self.condition.signal();
+    }
+
+    fn lock(self: *Pool) void {
+        while (!self.mutex.tryLock()) {
+            std.Thread.yield() catch {};
+        }
+    }
+
+    fn unlock(self: *Pool) void {
+        self.mutex.unlock();
     }
 };
 

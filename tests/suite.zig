@@ -91,6 +91,29 @@ test "integration: prepared statement manual stepping" {
     try std.testing.expect(!(try statement.step()));
 }
 
+test "integration: prepare flags include SQLite 3.53 from-ddl mode" {
+    var db = try sqlite.Db.open(std.testing.allocator, .{});
+    defer db.deinit();
+
+    var statement = try db.prepareWithOptions("select 1", .{ .from_ddl = true });
+    defer statement.deinit();
+
+    try std.testing.expect(try statement.step());
+    try std.testing.expectEqual(@as(i64, 1), try statement.read(i64, 0, std.testing.allocator));
+}
+
+test "integration: SQLite 3.53 json_array_insert is available" {
+    var db = try sqlite.Db.open(std.testing.allocator, .{});
+    defer db.deinit();
+
+    try std.testing.expect(sqlite.sqliteVersionNumber() >= 3_053_000);
+
+    const value = (try db.one([]const u8, "select json_array_insert(?, '$[1]', ?)", .{ "[1,2,3]", @as(i64, 99) })).?;
+    defer sqlite.release(std.testing.allocator, value);
+
+    try std.testing.expectEqualStrings("[1,99,2,3]", value);
+}
+
 test "integration: blob streaming round trip" {
     var db = try sqlite.Db.open(std.testing.allocator, .{});
     defer db.deinit();
@@ -367,7 +390,7 @@ test "integration: virtual table module" {
     const explain = (try db.one(ExplainPlan, "explain query plan select value from numbers where value = ?", .{@as(i64, 30)})).?;
     defer sqlite.release(std.testing.allocator, explain);
 
-    try std.testing.expect(std.mem.indexOf(u8, explain.detail, "VIRTUAL TABLE INDEX 1") != null);
+    try std.testing.expect(std.mem.find(u8, explain.detail, "VIRTUAL TABLE INDEX 1") != null);
     try std.testing.expectEqualSlices(i64, &.{ 15, 30, 40 }, values);
 
     const matched = try db.all(i64, "select value from numbers where value = ?", .{@as(i64, 30)});

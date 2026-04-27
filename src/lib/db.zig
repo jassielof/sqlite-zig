@@ -4,6 +4,7 @@ const c = @import("c.zig").c;
 const errors = @import("errors.zig");
 const function = @import("function.zig");
 const release_util = @import("release.zig");
+const PrepareOptions = @import("statement.zig").PrepareOptions;
 const Statement = @import("statement.zig").Statement;
 const tx = @import("transaction.zig");
 const vtab = @import("vtab.zig");
@@ -80,6 +81,10 @@ pub const Db = struct {
 
     pub fn prepare(self: *Db, sql: []const u8) errors.Error!Statement {
         return Statement.prepare(self.handle, sql);
+    }
+
+    pub fn prepareWithOptions(self: *Db, sql: []const u8, options: PrepareOptions) errors.Error!Statement {
+        return Statement.prepareWithOptions(self.handle, sql, options);
     }
 
     pub fn query(self: *Db, sql: []const u8, params: anytype) errors.Error!Statement {
